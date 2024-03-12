@@ -1,5 +1,4 @@
 import pandas as pd
-import torch
 from torch.utils.data import Dataset
 
 class TextAndLabelsSet(Dataset):
@@ -7,11 +6,11 @@ class TextAndLabelsSet(Dataset):
     def __init__(self, path, tokenizer, max_length=128):
 
         # init the dataset
-        self.df = pd.read_csv(path, delimiter="\t")
+        self.df = pd.read_csv(path)
         
         self.tokenizer = tokenizer
         self.max_length = max_length
-        self.texts = self.df['setence'].tolist()
+        self.texts = self.df['sentence'].tolist()
         self.labels = self.df['label'].tolist()
     
     def __len__(self):

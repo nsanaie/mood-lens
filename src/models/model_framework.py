@@ -11,6 +11,12 @@ class Model(DistilBertPreTrainedModel):
         super().__init__(config)
         self.model = DistilBertModel(config)
         self.linear_layer = nn.Linear(config.hidden_size, 1)
+    
+    def forward(self, input_ids, attention_mask):
+        outputs = self.model(input_ids=input_ids, attention_mask=attention_mask)
+        last_hidden_state = outputs.last_hidden_state
+        return self.linear_layer(last_hidden_state[:, 0])
+
 
 class Modeler:
     """
@@ -21,11 +27,8 @@ class Modeler:
         self.model_name = model_name
         self.tokenizer = tokenizer
 
-        #output directory
-        self.outputp = "model"
-        
         # setting up model with configs, device to run on
-        self.config = AutoConfig(self.model_name)
+        self.config = AutoConfig.from_pretrained(self.model_name)
         self.model = Model.from_pretrained(self.model_name)
         if torch.cuda.is_available():
             self.device = torch.device("cuda:0")
@@ -54,7 +57,7 @@ class Modeler:
             optimizer.zero_grad()
 
             # get output and loss + backpropogation of loss
-            outputs = self.model(input_ids=input_ids, attention_mask=attention_mask).logits.squeeze(-1)
+            outputs = self.model(input_ids=input_ids, attention_mask=attention_mask).squeeze(-1)
             loss = criterion(input=outputs, target=labels.float())
             loss.backward()
 
@@ -81,21 +84,21 @@ class Modeler:
                 
                 predictions = torch.sigmoid(val_logits.unsqueeze(-1))
                 binary_predictions = (predictions > 0.5).long().squeeze()
-                val_accuracy += (binary_predictions == labels).float().mean()
+                val_accuracy += (binary_predictions == val_labels).float().mean()
 
                 i += 1
 
 
         accuracy = val_accuracy / i
-        print(f'Epoch {epoch_count} Completed. Training Loss: {loss.item()}, Validation Loss: {val_loss.item()}, Accuracy: {accuracy.item()}')
+        print(f'Epoch {epoch_count} Completed. Training Loss: {loss.item()}, Validation Loss: {val_loss}, Accuracy: {accuracy.item()}')
         return accuracy.item()
 
 
         
-    def save_model(self, output_path):
+    def save_model(self):
         """
         Save model, tokenizer and configuration
         """
-        self.model.save_pretrained(output_path)
-        self.config.save_pretrained(output_path)
-        self.tokenizer.save_pretrained(output_path)
+        self.model.save_pretrained(save_directory="DistilBERT/")
+        self.config.save_pretrained(save_directory="DistilBERT/")
+        self.tokenizer.save_pretrained(save_directory="DistilBERT/")
