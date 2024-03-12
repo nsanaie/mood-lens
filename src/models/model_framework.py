@@ -41,11 +41,14 @@ class Modeler:
         # evaluation mode on initilization of modeler
         self.model.eval()
     
-    def train(self, train_loader, optimizer, criterion):
+    def train_model(self, train_loader, val_loader, optimizer, criterion):
+        """
+        One epoch training for use in training.py
+        """
         # set to training mode
         self.model.train()
         # create batches (tqdm is loading bar plugin)
-        for inputs_ids, attention_mask, label in tqdm(train_loader):
+        for input_ids, attention_mask, labels in tqdm(train_loader, desc="training"):
 
             # add data to device (including labels)
             input_ids = input_ids.to(self.device)
@@ -57,11 +60,36 @@ class Modeler:
 
             # get output and loss + backpropogation of loss
             outputs = self.model(input_ids=input_ids, attention_mask=attention_mask).logits.squeeze(-1)
-            loss = criterion(outputs, labels.float())
+            loss = criterion(input=outputs, target=labels.float())
             loss.backward()
 
             # omptimze? the mode. Need to look more into this.
             optimizer.step()
+        
+        # set to evaluation mode
+        self.model.eval()
+        
+        with torch.no_grad():
 
-
+            # go through in batches for evaluation
+            for val_input_ids, val_attention_mask, val_labels in tqdm(val_loader, desc="evaluating"):
             
+                # add data to device (including labels)
+                val_input_ids = val_input_ids.to(self.device)
+                val_attention_mask = val_attention_mask.to(self.device)
+                val_labels = val_labels.to(self.device)
+
+                val_outputs = self.model(input_ids=val_input_ids, attention_mask=val_attention_mask).logits.squeeze(-1)
+                val_loss = criterion(input=val_outputs, target=val_labels.float())
+        
+        print(f'Epoch Completed. Training Loss: {loss.item()}, Validation Loss: {val_loss.item()}')
+
+
+        
+    def save_model(self, output_path):
+        """
+        Save model, tokenizer and configuration
+        """
+        self.model.save_pretrained(output_path)
+        self.config.save_pretrained(output_path)
+        self.tokenizer.save_pretrained(output_path)
