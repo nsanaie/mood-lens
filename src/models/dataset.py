@@ -4,13 +4,10 @@ from torch.utils.data import Dataset
 
 class TextAndLabelsSet(Dataset):
 
-    def __init__(self, training, tokenizer, max_length=128):
+    def __init__(self, path, tokenizer, max_length=128):
 
         # init the dataset
-        if training:
-            self.df = pd.read_csv("data/train_binary_sent.csv", delimiter="\t")
-        else:
-            self.df = pd.read_csv("data/test_binary_sent.csv", delimiter="\t")
+        self.df = pd.read_csv(path, delimiter="\t")
         
         self.tokenizer = tokenizer
         self.max_length = max_length

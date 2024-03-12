@@ -16,18 +16,13 @@ class Modeler:
     """
     Wrapper for creating, training, saving and other handling of the sentiment model.
     """
-    def __init__(self, training):
+    def __init__(self, model_name, tokenizer):
 
-        if training:
-            self.model_name = "bert-base-uncased"
-        else:
-            self.model_name = ""
+        self.model_name = model_name
+        self.tokenizer = tokenizer
 
         #output directory
         self.outputp = "model"
-
-        # create tokenizer
-        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
         
         # setting up model with configs, device to run on
         self.config = AutoConfig(self.model_name)
@@ -41,7 +36,7 @@ class Modeler:
         # evaluation mode on initilization of modeler
         self.model.eval()
     
-    def train_model(self, train_loader, val_loader, optimizer, criterion):
+    def train_model(self, train_loader, val_loader, optimizer, criterion, epoch_count):
         """
         One epoch training for use in training.py
         """
@@ -70,7 +65,9 @@ class Modeler:
         self.model.eval()
         
         with torch.no_grad():
-
+            
+            val_accuracy, val_loss = 0, 0
+            i = 0
             # go through in batches for evaluation
             for val_input_ids, val_attention_mask, val_labels in tqdm(val_loader, desc="evaluating"):
             
@@ -79,10 +76,19 @@ class Modeler:
                 val_attention_mask = val_attention_mask.to(self.device)
                 val_labels = val_labels.to(self.device)
 
-                val_outputs = self.model(input_ids=val_input_ids, attention_mask=val_attention_mask).logits.squeeze(-1)
-                val_loss = criterion(input=val_outputs, target=val_labels.float())
-        
-        print(f'Epoch Completed. Training Loss: {loss.item()}, Validation Loss: {val_loss.item()}')
+                val_logits = self.model(input_ids=val_input_ids, attention_mask=val_attention_mask)
+                val_loss += criterion(input=val_logits.squeeze(-1), target=val_labels.float()).item()
+                
+                predictions = torch.sigmoid(val_logits.unsqueeze(-1))
+                binary_predictions = (predictions > 0.5).long().squeeze()
+                val_accuracy += (binary_predictions == labels).float().mean()
+
+                i += 1
+
+
+        accuracy = val_accuracy / i
+        print(f'Epoch {epoch_count} Completed. Training Loss: {loss.item()}, Validation Loss: {val_loss.item()}, Accuracy: {accuracy.item()}')
+        return accuracy.item()
 
 
         
