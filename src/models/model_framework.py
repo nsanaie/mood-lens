@@ -1,21 +1,26 @@
 import torch.nn as nn
 import torch
-from transformers import AutoTokenizer, AutoConfig, DistilBertPreTrainedModel, DistilBertModel
+from transformers import AutoTokenizer, AutoConfig, BertPreTrainedModel, BertModel
 from tqdm import tqdm
 
-class Model(DistilBertPreTrainedModel):
+class Model(BertPreTrainedModel):
     """
     Creating the model to be trained from the original DistilBERT
     """
     def __init__(self, config):
         super().__init__(config)
-        self.model = DistilBertModel(config)
+        self.model = BertModel(config)
         self.linear_layer = nn.Linear(config.hidden_size, 1)
     
     def forward(self, input_ids, attention_mask):
-        outputs = self.model(input_ids=input_ids, attention_mask=attention_mask)
-        last_hidden_state = outputs.last_hidden_state
-        return self.linear_layer(last_hidden_state[:, 0])
+        # outputs = self.model(input_ids=input_ids, attention_mask=attention_mask)
+        # last_hidden_state = outputs.last_hidden_state
+        # return self.linear_layer(last_hidden_state[:, 0])
+    
+        output = self.model(input_ids=input_ids, attention_mask=attention_mask)
+        pooled_output = output.last_hidden_state[:, 0]  # Taking the [CLS] token output
+        logits = self.linear_layer(pooled_output)
+        return logits
 
 
 class Modeler:
@@ -48,13 +53,13 @@ class Modeler:
         # create batches (tqdm is loading bar plugin)
         for input_ids, attention_mask, labels in tqdm(train_loader, desc="training"):
 
+            # gradient reset
+            optimizer.zero_grad()
+
             # add data to device (including labels)
             input_ids = input_ids.to(self.device)
             attention_mask = attention_mask.to(self.device)
             labels = labels.to(self.device)
-
-            # gradient reset
-            optimizer.zero_grad()
 
             # get output and loss + backpropogation of loss
             outputs = self.model(input_ids=input_ids, attention_mask=attention_mask).squeeze(-1)
@@ -99,6 +104,26 @@ class Modeler:
         """
         Save model, tokenizer and configuration
         """
-        self.model.save_pretrained(save_directory="DistilBERT/")
-        self.config.save_pretrained(save_directory="DistilBERT/")
-        self.tokenizer.save_pretrained(save_directory="DistilBERT/")
+        self.model.save_pretrained(save_directory="BERT-text/")
+        self.config.save_pretrained(save_directory="BERT-text/")
+        self.tokenizer.save_pretrained(save_directory="BERT-text")
+
+    def evaluate(self, text):
+        """
+        Evaluate any text using the trained model
+        """
+        with torch.no_grad():
+
+            # make tokens
+            tokens = ["[CLS]"] + self.tokenizer.tokenize(text) + ["[SEP]"]
+            input_ids = torch.tensor(self.tokenizer.convert_tokens_to_ids(tokens)).unsqueeze(0).to(self.device)
+            attention_mask = (input_ids != 0).long()
+
+            # calculate positive sentiment
+            positive = (torch.sigmoid(self.model(input_ids=input_ids, attention_mask=attention_mask).unsqueeze(-1)).item()) * 100
+
+            # return negative or positive
+            if positive > 50:
+                return (True, int(positive))
+            else:
+                return (False, int(100-positive))
