@@ -2,7 +2,7 @@ import torch
 
 class Model(torch.nn.Module):
 
-    def __init(self, model, output, freeze):
+    def __init__(self, model, output, freeze):
         super().__init__()
         self.model = model
         hidden = model.config.hidden_size
