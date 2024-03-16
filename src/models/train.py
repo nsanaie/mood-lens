@@ -54,9 +54,9 @@ if __name__ == "__main__":
 
     for i in tqdm.trange(epochs):
         train_acc, train_loss = wrapper.train_model(train_dataloader, model, critereon, optimizer, device)
-        valid_acc, valid_loss = wrapper.evaluate_model(validation_dataloader, model, critereon, optimizer, device)
+        valid_acc, valid_loss = wrapper.evaluate_model(validation_dataloader, model, critereon, device)
 
-        if valid_loss < best_loss:
+        if valid_loss > best_loss:
             best_loss = valid_loss
             torch.save(model.state_dict(), "model.pt")
         print(f"epoch: {i}")
