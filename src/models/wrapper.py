@@ -100,3 +100,18 @@ class Wrapper:
                 losses.append(loss.item())
         
         return np.mean(accs), np.mean(losses)
+    
+    def evaluate_text(self, text, model, tokenizer, dev):
+        """
+        Use the generated model to evaluate inputted text
+        """
+        # get ids from text
+        ids = tokenizer(text)["input_ids"]
+
+        # calcualte predicition and probability based on tensors from the model
+        pred = model(torch.LongTensor(ids).unsqueeze(dim=0).to(dev)).squeeze(dim=0)
+        prob = torch.softmax(pred, dim=-1)
+        pred_class = pred.argmax(dim=-1).item()
+        pred_prob = prob[pred_class].item()
+
+        return pred_class, pred_prob
